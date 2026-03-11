@@ -445,14 +445,14 @@ let syncTimer = null;
 let pollInterval = null;
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
-function todayKey() { return new Date().toISOString().slice(0,10); }
-function fmtDate(iso) {
+window.todayKey = function() { return new Date().toISOString().slice(0,10); }
+window.fmtDate = function(iso) {
   const d = new Date(iso + "T00:00:00");
   return `${DAYS[d.getDay()]}, ${d.getDate()} ${d.toLocaleString("default",{month:"short"})}`;
 }
 
 // ── Firebase REST ──────────────────────────────────────────────────────────────
-function fbUrl(path="") {
+window.fbUrl = function(path="") {
   const base = creds.dbUrl.replace(/\/$/, "");
   return `${base}/users/${creds.userKey}${path}.json`;
 }
@@ -470,23 +470,23 @@ async function fbWrite(data) {
 }
 
 // ── Credentials ───────────────────────────────────────────────────────────────
-function loadCreds() {
+window.loadCreds = function() {
   try { const s = localStorage.getItem("nl:creds"); return s ? JSON.parse(s) : null; }
   catch { return null; }
 }
-function saveCreds(c) { localStorage.setItem("nl:creds", JSON.stringify(c)); }
-function clearCreds() { localStorage.removeItem("nl:creds"); }
-function genKey() { return Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10); }
+window.saveCreds = function(c) { localStorage.setItem("nl:creds", JSON.stringify(c)); }
+window.clearCreds = function() { localStorage.removeItem("nl:creds"); }
+window.genKey = function() { return Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10); }
 
 // ── Nutrition helpers ──────────────────────────────────────────────────────────
-function sumMeals(m) {
+window.sumMeals = function(m) {
   let p=0,c=0,f=0,cal=0;
   Object.values(m||{}).forEach(items =>
     (items||[]).forEach(i => { p+=+i.protein||0; c+=+i.carbs||0; f+=+i.fat||0; cal+=+i.calories||0; })
   );
   return { protein:Math.round(p), carbs:Math.round(c), fat:Math.round(f), calories:Math.round(cal) };
 }
-function calcScore(t) {
+window.calcScore = function(t) {
   let s = Math.min(t.protein/TARGETS.protein,1)*50;
   const r = t.calories/TARGETS.calories;
   s += r>=0.85&&r<=1.1 ? 30 : r<0.85 ? r*25 : 15;
@@ -495,7 +495,7 @@ function calcScore(t) {
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
-function setSyncStatus(s) {
+window.setSyncStatus = function(s) {
   const dot = document.getElementById("sync-dot");
   const lbl = document.getElementById("sync-label");
   dot.className = "sync-dot " + s;
@@ -516,7 +516,7 @@ async function pull(silent=false) {
   }
 }
 
-function scheduleSave(data) {
+window.scheduleSave = function(data) {
   allData = data;
   renderCurrentView();
   clearTimeout(syncTimer);
@@ -527,16 +527,16 @@ function scheduleSave(data) {
   }, 700);
 }
 
-function manualRefresh() { pull(false); }
+window.manualRefresh = function() { pull(false); }
 
 // ── Day data helpers ───────────────────────────────────────────────────────────
-function getDay(date) { return allData[date] || { meals:{}, workouts:[] }; }
-function getMeals(date) { return getDay(date).meals || {}; }
-function getWorkouts(date) { return getDay(date).workouts || []; }
+window.getDay = function(date) { return allData[date] || { meals:{}, workouts:[] }; }
+window.getMeals = function(date) { return getDay(date).meals || {}; }
+window.getWorkouts = function(date) { return getDay(date).workouts || []; }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 let toastTimer = null;
-function showToast(msg) {
+window.showToast = function(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg; el.classList.add("show");
   clearTimeout(toastTimer);
@@ -544,16 +544,16 @@ function showToast(msg) {
 }
 
 // ── Setup screen ──────────────────────────────────────────────────────────────
-function showSetupChoice() {
+window.showSetupChoice = function() {
   document.getElementById("setup-choice").classList.remove("hidden");
   document.getElementById("setup-new").classList.add("hidden");
   document.getElementById("setup-connect").classList.add("hidden");
 }
-function showSetupNew() {
+window.showSetupNew = function() {
   document.getElementById("setup-choice").classList.add("hidden");
   document.getElementById("setup-new").classList.remove("hidden");
 }
-function showSetupConnect() {
+window.showSetupConnect = function() {
   document.getElementById("setup-choice").classList.add("hidden");
   document.getElementById("setup-connect").classList.remove("hidden");
 }
@@ -619,7 +619,7 @@ async function bootApp() {
   pollInterval = setInterval(() => pull(true), 30000);
 }
 
-function disconnect() {
+window.disconnect = function() {
   if (!confirm("Remove this device's connection? Your cloud data won't be deleted.")) return;
   clearCreds(); clearInterval(pollInterval);
   document.getElementById("app").classList.add("hidden");
@@ -636,7 +636,7 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ── View switching ─────────────────────────────────────────────────────────────
-function switchView(v) {
+window.switchView = function(v) {
   currentView = v;
   ["log","week","report"].forEach(name => {
     document.getElementById(`view-${name}`).classList.toggle("hidden", name!==v);
@@ -648,14 +648,14 @@ function switchView(v) {
   if (v==="report") { pull(true).then(() => { buildReport(); renderConnectCode(); }); }
 }
 
-function renderCurrentView() {
+window.renderCurrentView = function() {
   if (currentView==="log") renderLog();
   if (currentView==="week") renderWeek();
   if (currentView==="report") buildReport();
 }
 
 // ── Date navigation ───────────────────────────────────────────────────────────
-function changeDate(delta) {
+window.changeDate = function(delta) {
   const d = new Date(selectedDate + "T00:00:00");
   d.setDate(d.getDate() + delta);
   const nk = d.toISOString().slice(0,10);
@@ -666,7 +666,7 @@ function changeDate(delta) {
 }
 
 // ── Log view ──────────────────────────────────────────────────────────────────
-function renderLog() {
+window.renderLog = function() {
   // Date label
   const lbl = document.getElementById("date-label");
   lbl.textContent = (selectedDate===todayKey() ? "Today — " : "") + fmtDate(selectedDate);
@@ -721,7 +721,7 @@ function renderLog() {
 }
 
 // ── Workout form ──────────────────────────────────────────────────────────────
-function initWorkoutForm() {
+window.initWorkoutForm = function() {
   // Type chips
   const tc = document.getElementById("wo-type-chips");
   tc.innerHTML = WORKOUT_TYPES.map(t => `
@@ -736,7 +736,7 @@ function initWorkoutForm() {
       onclick="selectWoInt('${i}')">${i}</div>`).join("");
 }
 
-function selectWoType(t) {
+window.selectWoType = function(t) {
   newWoType = t;
   WORKOUT_TYPES.forEach(x => {
     const el = document.getElementById(`wot-${x}`);
@@ -748,7 +748,7 @@ function selectWoType(t) {
     }
   });
 }
-function selectWoInt(i) {
+window.selectWoInt = function(i) {
   newWoIntensity = i;
   INTENSITIES.forEach(x => {
     const el = document.getElementById(`woi-${x}`);
@@ -761,14 +761,14 @@ function selectWoInt(i) {
   });
 }
 
-function toggleAddWorkout() {
+window.toggleAddWorkout = function() {
   addingWorkout = !addingWorkout;
   document.getElementById("wo-form").classList.toggle("hidden", !addingWorkout);
   document.getElementById("wo-add-btn").textContent = addingWorkout ? "Cancel" : "+ Add";
   document.getElementById("wo-add-btn").className = `btn btn-sm ${addingWorkout?"btn-gray":"btn-primary"}`;
 }
 
-function renderWorkouts() {
+window.renderWorkouts = function() {
   const wos = getWorkouts(selectedDate);
   const list = document.getElementById("wo-list");
   if (wos.length === 0 && !addingWorkout) {
@@ -809,7 +809,7 @@ async function removeWorkout(idx) {
 }
 
 // ── Meals ──────────────────────────────────────────────────────────────────────
-function renderMeals() {
+window.renderMeals = function() {
   const meals = getMeals(selectedDate);
   const list = document.getElementById("meals-list");
   list.innerHTML = MEALS.map(meal => {
@@ -831,7 +831,7 @@ function renderMeals() {
   }).join("");
 }
 
-function renderMealBody(meal, items) {
+window.renderMealBody = function(meal, items) {
   const foodItems = items.map((item,i) => `
     <div class="food-item">
       <div>
@@ -876,7 +876,7 @@ function renderMealBody(meal, items) {
   </div>`;
 }
 
-function toggleMeal(meal) {
+window.toggleMeal = function(meal) {
   activeMeal = activeMeal===meal ? null : meal;
   aiResult = null; aiMeal = null;
   renderMeals();
@@ -916,7 +916,7 @@ async function doLookup(meal) {
   renderMeals();
 }
 
-function clearAi() { aiResult = null; aiMeal = null; renderMeals(); }
+window.clearAi = function() { aiResult = null; aiMeal = null; renderMeals(); }
 
 async function addAiResult(meal) {
   if (!aiResult) return;
@@ -934,7 +934,7 @@ async function removeFoodItem(meal, idx) {
 }
 
 // ── Week view ──────────────────────────────────────────────────────────────────
-function renderWeek() {
+window.renderWeek = function() {
   const keys = Object.keys(allData).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().slice(-7).reverse();
   const list = document.getElementById("week-list");
   if (!keys.length) {
@@ -983,7 +983,7 @@ function renderWeek() {
 }
 
 // ── Report ─────────────────────────────────────────────────────────────────────
-function buildReport() {
+window.buildReport = function() {
   const keys = Object.keys(allData).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)).sort().slice(-7);
   if (!keys.length) { document.getElementById("report-ta").value = "No nutrition data logged yet."; return; }
   let t="📊 WEEKLY NUTRITION & WORKOUT REPORT\n";
@@ -1012,7 +1012,7 @@ function buildReport() {
   document.getElementById("report-ta").value = t;
 }
 
-function copyReport() {
+window.copyReport = function() {
   const ta = document.getElementById("report-ta");
   const text = ta.value;
   const btn = document.getElementById("copy-report-btn");
@@ -1022,20 +1022,20 @@ function copyReport() {
 }
 
 // ── Connect code ───────────────────────────────────────────────────────────────
-function renderConnectCode() {
+window.renderConnectCode = function() {
   const code = btoa(JSON.stringify({ dbUrl: creds.dbUrl, userKey: creds.userKey }));
   document.getElementById("connect-code-display").value = code;
 }
-function showConnectCode() {
+window.showConnectCode = function() {
   document.getElementById("connect-code-collapsed").classList.add("hidden");
   document.getElementById("connect-code-panel").classList.remove("hidden");
   renderConnectCode();
 }
-function hideConnectCode() {
+window.hideConnectCode = function() {
   document.getElementById("connect-code-panel").classList.add("hidden");
   document.getElementById("connect-code-collapsed").classList.remove("hidden");
 }
-function copyConnectCode() {
+window.copyConnectCode = function() {
   const ta = document.getElementById("connect-code-display");
   const btn = document.getElementById("copy-connect-btn");
   const copy = () => { btn.textContent = "✓ Copied! Open this page on your other device"; btn.style.background = "linear-gradient(135deg,#27ae60,#219a52)"; setTimeout(()=>{ btn.textContent="📋 Copy Connect Code"; btn.style.background=""; },3000); };
