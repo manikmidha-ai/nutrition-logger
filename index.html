@@ -153,6 +153,8 @@ textarea.inp{resize:none;line-height:1.5}
       <div class="step"><div class="snum">3</div><div><div class="stitle">Set rules to allow access</div><div class="sbody">Rules tab → set .read and .write to <em>true</em> → Publish</div></div></div>
       <div class="step"><div class="snum">4</div><div><div class="stitle">Copy your Database URL</div><div class="sbody">Data tab — the URL shown (e.g. <em>https://your-project.asia-southeast1.firebasedatabase.app</em>)</div></div></div>
       <input class="dinp" id="nu" type="url" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app">
+      <div class="step" style="margin-top:16px"><div class="snum">5</div><div><div class="stitle">Add your Anthropic API key</div><div class="sbody">Go to <em>console.anthropic.com</em> → API Keys → Create key → paste below. This stays on your device only.</div></div></div>
+      <input class="dinp" id="ak" type="password" placeholder="sk-ant-...">
       <div id="ne" class="serr hidden"></div>
       <button class="sbtn" id="nb" style="background:linear-gradient(135deg,#7a4a2a,#3d2314)" onclick="doNew()">Connect & Start Logging →</button>
       <button class="sback" onclick="showChoice()">← Back</button>
@@ -255,6 +257,13 @@ textarea.inp{resize:none;line-height:1.5}
       <p class="muted mt6 center">If button fails: tap box → Cmd+A → Cmd+C</p>
     </div>
     <div class="card cp">
+      <div style="font-family:Georgia,serif;font-size:15px;margin-bottom:8px">🔑 Anthropic API Key</div>
+      <p class="muted" style="margin-bottom:8px;line-height:1.5">Used for AI macro lookup. Get yours free at <strong>console.anthropic.com</strong></p>
+      <input class="inp" id="akupd" type="password" placeholder="sk-ant-... (paste to update)">
+      <button class="btn btn-p" style="margin-top:6px" onclick="saveApiKey()">Save API Key</button>
+      <div id="akst" class="muted mt6 center"></div>
+    </div>
+    <div class="card cp">
       <button class="btn btn-gray" onclick="doDisconnect()">Disconnect & Reset This Device</button>
       <p class="muted mt6 center">Removes credentials from this device only — cloud data stays safe</p>
     </div>
@@ -285,7 +294,8 @@ var pollTimer = null;
 
 function todayKey() { return new Date().toISOString().slice(0,10); }
 function fmtDate(iso) {
-  var d = new Date(iso + "T00:00:00");
+  var parts = iso.split("-");
+  var d = new Date(+parts[0], +parts[1]-1, +parts[2]);
   return DAYS[d.getDay()] + ", " + d.getDate() + " " + d.toLocaleString("default",{month:"short"});
 }
 
@@ -395,6 +405,8 @@ function doNew() {
     body:JSON.stringify({_setup:Date.now()})
   }).then(function(r){
     if(!r.ok) throw new Error("HTTP "+r.status);
+    var apiKey = document.getElementById("ak").value.trim();
+    if(apiKey) localStorage.setItem("nl:apikey", apiKey);
     creds = {dbUrl:url,userKey:userKey};
     saveCreds(creds);
     bootApp();
@@ -458,7 +470,7 @@ function sv(v) {
   document.getElementById("rw").classList.toggle("hidden", v!=="log");
   document.getElementById("hm").classList.toggle("hidden", v!=="log");
   if(v==="week") pull(true);
-  if(v==="report") { pull(true).then(function(){ buildReport(); renderCC(); }); }
+  if(v==="report") { pull(true).then(function(){ buildReport(); renderCC(); setTimeout(showApiKeyStatus,100); }); }
 }
 function render() {
   if(curView==="log") renderLog();
@@ -468,9 +480,13 @@ function render() {
 
 // Date nav
 function cd(delta) {
-  var d = new Date(selDate+"T00:00:00");
+  var parts = selDate.split("-");
+  var d = new Date(+parts[0], +parts[1]-1, +parts[2]);
   d.setDate(d.getDate()+delta);
-  var nk = d.toISOString().slice(0,10);
+  var y = d.getFullYear();
+  var m = String(d.getMonth()+1).padStart(2,"0");
+  var day = String(d.getDate()).padStart(2,"0");
+  var nk = y+"-"+m+"-"+day;
   if(nk>todayKey()) return;
   selDate = nk; actMeal = null; aiRes = null; aiMealName = null;
   renderLog();
@@ -642,8 +658,9 @@ function doLookup(meal) {
   if(!desc) return;
   btn.textContent = "…"; btn.disabled = true;
   errEl.innerHTML = "";
+  var apiKey = localStorage.getItem("nl:apikey")||"";
   fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",headers:{"Content-Type":"application/json"},
+    method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
     body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,
       messages:[{role:"user",content:'Nutrition for: "'+desc+'"\nReturn ONLY valid JSON:\n{"name":"string","protein":n,"carbs":n,"fat":n,"calories":n}\nUse standard Indian portion sizes if unspecified.'}]})
   }).then(function(r){ return r.json(); }).then(function(d){
@@ -753,6 +770,20 @@ function copyCC() {
   var ok = function(){ btn.textContent="✓ Copied!"; btn.style.background="linear-gradient(135deg,#27ae60,#219a52)"; setTimeout(function(){ btn.textContent="📋 Copy Connect Code"; btn.style.background=""; },3000); };
   if(navigator.clipboard&&navigator.clipboard.writeText) { navigator.clipboard.writeText(ta.value).then(ok).catch(function(){ ta.select(); try{document.execCommand("copy");ok();}catch(e){} }); }
   else { ta.select(); ta.setSelectionRange(0,99999); try{document.execCommand("copy");ok();}catch(e){} }
+}
+function saveApiKey() {
+  var val = document.getElementById("akupd").value.trim();
+  if(!val) { document.getElementById("akst").textContent = "Please paste your API key first"; return; }
+  localStorage.setItem("nl:apikey", val);
+  document.getElementById("akupd").value = "";
+  document.getElementById("akst").textContent = "✓ API key saved";
+  setTimeout(function(){ document.getElementById("akst").textContent = ""; }, 2500);
+}
+function showApiKeyStatus() {
+  var el = document.getElementById("akst");
+  if(!el) return;
+  var key = localStorage.getItem("nl:apikey");
+  el.textContent = key ? "✓ Key saved (ends in ..."+key.slice(-4)+")" : "No key saved yet";
 }
 </script>
 </body>
