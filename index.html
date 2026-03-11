@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Nutrition Log</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -659,6 +661,11 @@ function doLookup(meal) {
   btn.textContent = "…"; btn.disabled = true;
   errEl.innerHTML = "";
   var apiKey = localStorage.getItem("nl:apikey")||"";
+  if(!apiKey || apiKey.length < 20) {
+    errEl.innerHTML = '<div class="err">⚠️ No API key found. Go to the Report tab → 🔑 Anthropic API Key section → paste your key and save it first.</div>';
+    btn.textContent = "Look up"; btn.disabled = false;
+    return;
+  }
   fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
     body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,
