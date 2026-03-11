@@ -660,7 +660,7 @@ function doLookup(meal) {
   errEl.innerHTML = "";
   var apiKey = localStorage.getItem("nl:apikey")||"";
   fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+    method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
     body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,
       messages:[{role:"user",content:'Nutrition for: "'+desc+'"\nReturn ONLY valid JSON:\n{"name":"string","protein":n,"carbs":n,"fat":n,"calories":n}\nUse standard Indian portion sizes if unspecified.'}]})
   }).then(function(r){ return r.json(); }).then(function(d){
