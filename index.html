@@ -664,13 +664,16 @@ function doLookup(meal) {
     body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,
       messages:[{role:"user",content:'Nutrition for: "'+desc+'"\nReturn ONLY valid JSON:\n{"name":"string","protein":n,"carbs":n,"fat":n,"calories":n}\nUse standard Indian portion sizes if unspecified.'}]})
   }).then(function(r){ return r.json(); }).then(function(d){
+    console.log("API response:", JSON.stringify(d));
+    if(d.error) { throw new Error(d.error.type+": "+d.error.message); }
     var text = ((d.content&&d.content[0]&&d.content[0].text)||"").replace(/```json|```/g,"").trim();
     aiRes = JSON.parse(text);
     aiMealName = meal;
     btn.textContent = "Look up"; btn.disabled = false;
     renderMeals();
   }).catch(function(e){
-    errEl.innerHTML = '<div class="err">Could not fetch macros. Try a more specific description.</div>';
+    console.error("Lookup error:", e.message);
+    errEl.innerHTML = '<div class="err">Error: '+e.message+'</div>';
     btn.textContent = "Look up"; btn.disabled = false;
   });
 }
