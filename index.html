@@ -644,20 +644,25 @@ function renderMealBody(meal,items) {
 function togMeal(meal) {
   actMeal = actMeal===meal?null:meal;
   aiRes = null; aiMealName = null;
+  delete mealInputs[meal];
   renderMeals();
   if(actMeal) {
     setTimeout(function(){
       var el = document.querySelector(".meal-btn.open");
       if(el) el.scrollIntoView({behavior:"smooth",block:"nearest"});
+      var inp = document.getElementById("fi-"+actMeal);
+      if(inp) inp.focus();
     },50);
   }
 }
+var mealInputs = {};
 function doLookup(meal) {
   var inp = document.getElementById("fi-"+meal);
   var btn = document.getElementById("lb-"+meal);
   var errEl = document.getElementById("ae-"+meal);
   var desc = inp&&inp.value&&inp.value.trim();
   if(!desc) return;
+  mealInputs[meal] = desc;
   btn.textContent = "…"; btn.disabled = true;
   errEl.innerHTML = "";
   var apiKey = localStorage.getItem("nl:apikey")||"";
@@ -693,6 +698,12 @@ function addAi(meal) {
   scheduleSave(Object.assign({},allData,{[selDate]:Object.assign({},day,{meals:m})}));
   toast(aiRes.name+" added!");
   aiRes = null; aiMealName = null;
+  // restore input focus and clear saved value
+  delete mealInputs[meal];
+  setTimeout(function(){
+    var inp = document.getElementById("fi-"+meal);
+    if(inp){ inp.value=""; inp.focus(); }
+  }, 50);
 }
 function rmFood(meal,idx) {
   var day = getDay(selDate);
