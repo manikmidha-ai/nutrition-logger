@@ -521,9 +521,11 @@ function renderLog() {
     {l:"Carbs",v:tot.carbs,t:TARGETS.carbs,c:"#3498db",u:"g"},
     {l:"Fat",v:tot.fat,t:TARGETS.fat,c:"#8e44ad",u:"g"},
     {l:"Calories",v:tot.calories,t:TARGETS.calories,c:"#27ae60",u:" kcal"}].map(function(x){
-    var pct = Math.min(x.v/x.t*100,100), over = x.v>x.t;
+    var rawPct = Math.round(x.v/x.t*100);
+    var pct = Math.min(rawPct,100), over = x.v>x.t;
     var fill = over?"linear-gradient(90deg,#e74c3c,#c0392b)":"linear-gradient(90deg,"+x.c+"88,"+x.c+")";
-    return '<div class="mbar"><div class="mbar-top"><span class="mbar-lbl">'+x.l+'</span><span class="mbar-val" style="color:'+(over?"#e74c3c":"var(--p)")+'">'+x.v+'<span class="mbar-tgt">/'+x.t+x.u+'</span></span></div><div class="mbar-track"><div class="mbar-fill" style="width:'+pct+'%;background:'+fill+'"></div></div></div>';
+    var pctCol = over?"#e74c3c":x.c;
+    return '<div class="mbar"><div class="mbar-top"><span class="mbar-lbl">'+x.l+'</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:'+pctCol+'">'+rawPct+'%</span><span class="mbar-val" style="color:'+(over?"#e74c3c":"var(--p)")+'">'+x.v+'<span class="mbar-tgt">/'+x.t+x.u+'</span></span></div></div><div class="mbar-track"><div class="mbar-fill" style="width:'+pct+'%;background:'+fill+'"></div></div></div>';
   }).join("");
   renderWoList();
   renderMeals();
@@ -625,20 +627,26 @@ function renderMealBody(meal,items) {
     '<button class="rmv" onclick="rmFood(\''+meal+'\','+i+')">×</button></div>';
   }).join("");
   var aiHtml = "";
-  if(aiRes && aiMealName===meal) {
-    aiHtml = '<div class="ai-box"><div class="ai-head"><div class="ai-name">'+aiRes.name+'</div>'+
-    '<button onclick="clearAi()" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer">×</button></div>'+
-    '<div class="ai-grid">'+
-    [["Protein",aiRes.protein+"g","#e67e22"],["Carbs",aiRes.carbs+"g","#3498db"],["Fat",aiRes.fat+"g","#8e44ad"],["Kcal",aiRes.calories,"#27ae60"]].map(function(x){
-      return '<div class="ai-tile"><div class="ai-val" style="color:'+x[2]+'">'+x[1]+'</div><div class="ai-lbl">'+x[0]+'</div></div>';
-    }).join("")+'</div>'+
-    '<button class="btn btn-p" style="margin-top:0" onclick="addAi(\''+meal+'\')">+ Add to '+meal+'</button></div>';
+  if(aiMultiResults.length && aiMealName===meal) {
+    var rows = aiMultiResults.map(function(r,i){
+      if(r._err) return '<div style="padding:6px 0;border-bottom:1px solid #f5f0eb;font-size:12px;color:#e74c3c">'+r._q+' — '+r._err+'</div>';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f0eb">'+
+        '<input type="checkbox" id="mr-'+meal+'-'+i+'" '+(r._sel?'checked':'')+' onchange="toggleMultiResult('+i+')" style="width:15px;height:15px;cursor:pointer;flex-shrink:0">'+
+        '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+r.name+'</div>'+
+        '<div style="font-size:11px;color:#bbb">P:'+r.protein+'g · C:'+r.carbs+'g · F:'+r.fat+'g · '+r.calories+'kcal</div></div></div>';
+    }).join("");
+    aiHtml = '<div class="ai-box" style="margin-top:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+      '<div style="font-weight:700;font-size:13px">'+aiMultiResults.length+' item'+(aiMultiResults.length>1?'s':'')+' found</div>'+
+      '<button onclick="clearAi()" style="background:none;border:none;color:#bbb;font-size:18px;cursor:pointer">×</button></div>'+
+      rows+
+      '<button class="btn btn-p" style="margin-top:8px" onclick="addSelectedAi(\''+meal+'\')">+ Add selected to '+meal+'</button></div>';
   }
   return '<div class="meal-body">'+foodHtml+
-    '<div class="lookup"><label>🤖 Describe what you ate — AI finds the macros</label>'+
-    '<div class="lookup-row"><input class="inp" id="fi-'+meal+'" placeholder=\'e.g. "2 millet rotis"\' onkeydown="if(event.key===\'Enter\')doLookup(\''+meal+'\')">'+
-    '<button class="lbtn" id="lb-'+meal+'" onclick="doLookup(\''+meal+'\')">Look up</button></div>'+
-    '<p class="tip">Tip: "paneer bhurji 100g" beats just "paneer"</p>'+
+    '<div class="lookup"><label>🤖 One item per line — AI finds macros for all</label>'+
+    '<textarea class="inp" id="fi-'+meal+'" rows="3" placeholder="2 millet rotis&#10;100g paneer bhurji&#10;1 cup toor dal" style="min-height:72px;resize:none;line-height:1.5;font-family:inherit"></textarea>'+
+    '<button class="lbtn" style="width:100%;margin-top:6px" id="lb-'+meal+'" onclick="doLookup(\''+meal+'\')">Look up all →</button>'+
+    '<p class="tip">Each line = one item. Press Look up to fetch all at once.</p>'+
     '<div id="ae-'+meal+'"></div>'+aiHtml+'</div></div>';
 }
 function togMeal(meal) {
@@ -656,40 +664,73 @@ function togMeal(meal) {
   }
 }
 var mealInputs = {};
+var multiResults = [];
+var multiPending = 0;
+var multiMeal = null;
+var aiMultiResults = [];
 function doLookup(meal) {
   var inp = document.getElementById("fi-"+meal);
   var btn = document.getElementById("lb-"+meal);
   var errEl = document.getElementById("ae-"+meal);
-  var desc = inp&&inp.value&&inp.value.trim();
-  if(!desc) return;
-  mealInputs[meal] = desc;
-  btn.textContent = "…"; btn.disabled = true;
-  errEl.innerHTML = "";
+  var raw = inp&&inp.value ? inp.value : "";
+  var lines = raw.split("\n").map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  if(!lines.length) return;
   var apiKey = localStorage.getItem("nl:apikey")||"";
   if(!apiKey || apiKey.length < 20) {
     errEl.innerHTML = '<div class="err">⚠️ No API key found. Go to the Report tab → 🔑 Anthropic API Key section → paste your key and save it first.</div>';
-    btn.textContent = "Look up"; btn.disabled = false;
     return;
   }
-  fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:300,
-      messages:[{role:"user",content:'Nutrition for: "'+desc+'"\nReturn ONLY valid JSON:\n{"name":"string","protein":n,"carbs":n,"fat":n,"calories":n}\nUse standard Indian portion sizes if unspecified.'}]})
-  }).then(function(r){ return r.json(); }).then(function(d){
-    console.log("API response:", JSON.stringify(d));
-    if(d.error) { throw new Error(d.error.type+": "+d.error.message); }
-    var text = ((d.content&&d.content[0]&&d.content[0].text)||"").replace(/```json|```/g,"").trim();
-    aiRes = JSON.parse(text);
-    aiMealName = meal;
-    btn.textContent = "Look up"; btn.disabled = false;
-    renderMeals();
-  }).catch(function(e){
-    console.error("Lookup error:", e.message);
-    errEl.innerHTML = '<div class="err">Error: '+e.message+'</div>';
-    btn.textContent = "Look up"; btn.disabled = false;
+  btn.textContent = "Looking up "+lines.length+" item"+(lines.length>1?"s":"")+"…"; btn.disabled = true;
+  errEl.innerHTML = "";
+  multiResults = []; multiMeal = meal; multiPending = lines.length;
+  lines.forEach(function(desc, idx) {
+    setTimeout(function(){
+      fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,
+          messages:[{role:"user",content:'Nutrition for: "'+desc+'"\nReturn ONLY valid JSON:\n{"name":"string","protein":n,"carbs":n,"fat":n,"calories":n}\nUse standard Indian portion sizes if unspecified.'}]})
+      }).then(function(r){ return r.json(); }).then(function(d){
+        if(d.error) throw new Error(d.error.message);
+        var text = ((d.content&&d.content[0]&&d.content[0].text)||"").replace(/```json|```/g,"").trim();
+        var result = JSON.parse(text);
+        result._sel = true; result._q = desc;
+        multiResults[idx] = result;
+      }).catch(function(e){
+        multiResults[idx] = {_q:desc,_err:e.message,_sel:false};
+      }).finally(function(){
+        multiPending--;
+        if(multiPending===0) {
+          btn.textContent = "Look up all →"; btn.disabled = false;
+          aiMultiResults = multiResults.filter(function(r){return r;});
+          aiMealName = meal;
+          renderMeals();
+        }
+      });
+    }, idx * 1000); // 1 second stagger to avoid rate limits
   });
 }
-function clearAi() { aiRes = null; aiMealName = null; renderMeals(); }
+function clearAi() { aiRes = null; aiMealName = null; aiMultiResults = []; renderMeals(); }
+function toggleMultiResult(idx) {
+  if(aiMultiResults[idx]) aiMultiResults[idx]._sel = !aiMultiResults[idx]._sel;
+}
+function addSelectedAi(meal) {
+  if(!aiMultiResults.length) return;
+  var day = getDay(selDate);
+  var m = Object.assign({},day.meals||{});
+  var added = 0;
+  aiMultiResults.forEach(function(r){
+    if(r._sel && !r._err) {
+      m[meal] = (m[meal]||[]).concat([{name:r.name,protein:r.protein,carbs:r.carbs,fat:r.fat,calories:r.calories}]);
+      added++;
+    }
+  });
+  if(!added) return;
+  scheduleSave(Object.assign({},allData,{[selDate]:Object.assign({},day,{meals:m})}));
+  toast(added+" item"+(added>1?"s":"")+" added to "+meal+"!");
+  aiMultiResults = []; aiMealName = null;
+  var inp = document.getElementById("fi-"+meal);
+  if(inp) { inp.value=""; setTimeout(function(){ inp.focus(); },50); }
+}
 function addAi(meal) {
   if(!aiRes) return;
   var day = getDay(selDate);
