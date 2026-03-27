@@ -529,6 +529,13 @@ function renderMacros() {
   renderWoList();
   renderMeals();
 }
+function renderLog() {
+  var dl = document.getElementById("dl");
+  if(dl) dl.textContent = (selDate===todayKey()?"Today — ":"")+fmtDate(selDate);
+  var dn = document.getElementById("dn");
+  if(dn) dn.disabled = selDate>=todayKey();
+  renderMacros();
+}
 
 // Workout form
 function initWoForm() {
