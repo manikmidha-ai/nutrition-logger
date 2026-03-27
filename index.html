@@ -372,7 +372,7 @@ function scheduleSave(data) {
   if(curView==="log") {
     renderMacros();
     renderWoList();
-    renderMeals();
+    // deliberately NOT calling renderMeals to preserve textarea content
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
@@ -480,6 +480,16 @@ function sv(v) {
   if(v==="week") pull(true);
   if(v==="report") { pull(true).then(function(){ buildReport(); renderCC(); setTimeout(showApiKeyStatus,100); }); }
 }
+function isMealTextareaActive() {
+  var active = document.activeElement;
+  if(active && active.tagName==="TEXTAREA" && active.id && active.id.indexOf("fi-")===0) return true;
+  // also check if any textarea has content being typed (has value but not yet submitted)
+  for(var i=0;i<MEALS.length;i++){
+    var el = document.getElementById("fi-"+MEALS[i]);
+    if(el && el.value.trim().length>0) return true;
+  }
+  return false;
+}
 function render() {
   if(curView==="log") renderLog();
   else if(curView==="week") renderWeek();
@@ -529,7 +539,7 @@ function renderMacros() {
     }).join("");
   }
   renderWoList();
-  renderMeals();
+  if(!isMealTextareaActive()) renderMeals();
 }
 function renderLog() {
   var dl = document.getElementById("dl");
@@ -537,6 +547,8 @@ function renderLog() {
   var dn = document.getElementById("dn");
   if(dn) dn.disabled = selDate>=todayKey();
   renderMacros();
+  // skip renderMeals if user is actively typing in a textarea
+  if(!isMealTextareaActive()) renderMeals();
 }
 
 // Workout form
@@ -633,6 +645,13 @@ function renderMeals() {
       '<div style="display:flex;align-items:center;gap:8px">'+(items.length?'<span class="meal-mac">'+mt.protein+'g P · '+mt.calories+'kcal</span>':'')+
       '<span class="arrow'+(isOpen?" open":"")+'" >›</span></div></button>'+body;
   }).join("");
+  // restore textarea values after re-render
+  setTimeout(function(){
+    MEALS.forEach(function(m){
+      var el = document.getElementById("fi-"+m);
+      if(el && savedInput[m]) el.value = savedInput[m];
+    });
+  }, 0);
 }
 function renderMealBody(meal,items) {
   var foodHtml = items.map(function(item,i){
