@@ -364,14 +364,15 @@ function pull(silent) {
   }).catch(function(e){
     setSyncStatus("error");
     if(!silent) toast("⚠️ Sync failed");
+    render(); // always render even if sync fails
   });
 }
 function scheduleSave(data) {
   allData = data;
-  // Only re-render macro bars and workout list — never wipe the meals textarea
   if(curView==="log") {
     renderMacros();
     renderWoList();
+    renderMeals();
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
@@ -515,17 +516,18 @@ function renderMacros() {
   var rc = document.getElementById("rc"); if(rc){ rc.style.strokeDashoffset = circ-(sc/100)*circ; rc.setAttribute("stroke",col); }
   var rn = document.getElementById("rn"); if(rn){ rn.textContent = sc; rn.style.color = col; }
   var mb = document.getElementById("mb");
-  if(!mb) return;
-  mb.innerHTML = [{l:"Protein",v:tot.protein,t:TARGETS.protein,c:"#e67e22",u:"g"},
-    {l:"Carbs",v:tot.carbs,t:TARGETS.carbs,c:"#3498db",u:"g"},
-    {l:"Fat",v:tot.fat,t:TARGETS.fat,c:"#8e44ad",u:"g"},
-    {l:"Calories",v:tot.calories,t:TARGETS.calories,c:"#27ae60",u:" kcal"}].map(function(x){
-    var rawPct = Math.round(x.v/x.t*100);
-    var pct = Math.min(rawPct,100), over = x.v>x.t;
-    var fill = over?"linear-gradient(90deg,#e74c3c,#c0392b)":"linear-gradient(90deg,"+x.c+"88,"+x.c+")";
-    var pctCol = over?"#e74c3c":x.c;
-    return '<div class="mbar"><div class="mbar-top"><span class="mbar-lbl">'+x.l+'</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:'+pctCol+'">'+rawPct+'%</span><span class="mbar-val" style="color:'+(over?"#e74c3c":"var(--p)")+'">'+x.v+'<span class="mbar-tgt">/'+x.t+x.u+'</span></span></div></div><div class="mbar-track"><div class="mbar-fill" style="width:'+pct+'%;background:'+fill+'"></div></div></div>';
-  }).join("");
+  if(mb) {
+    mb.innerHTML = [{l:"Protein",v:tot.protein,t:TARGETS.protein,c:"#e67e22",u:"g"},
+      {l:"Carbs",v:tot.carbs,t:TARGETS.carbs,c:"#3498db",u:"g"},
+      {l:"Fat",v:tot.fat,t:TARGETS.fat,c:"#8e44ad",u:"g"},
+      {l:"Calories",v:tot.calories,t:TARGETS.calories,c:"#27ae60",u:" kcal"}].map(function(x){
+      var rawPct = Math.round(x.v/x.t*100);
+      var pct = Math.min(rawPct,100), over = x.v>x.t;
+      var fill = over?"linear-gradient(90deg,#e74c3c,#c0392b)":"linear-gradient(90deg,"+x.c+"88,"+x.c+")";
+      var pctCol = over?"#e74c3c":x.c;
+      return '<div class="mbar"><div class="mbar-top"><span class="mbar-lbl">'+x.l+'</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:'+pctCol+'">'+rawPct+'%</span><span class="mbar-val" style="color:'+(over?"#e74c3c":"var(--p)")+'">'+x.v+'<span class="mbar-tgt">/'+x.t+x.u+'</span></span></div></div><div class="mbar-track"><div class="mbar-fill" style="width:'+pct+'%;background:'+fill+'"></div></div></div>';
+    }).join("");
+  }
   renderWoList();
   renderMeals();
 }
@@ -614,7 +616,6 @@ function rmWo(idx) {
 
 // Meals
 function renderMeals() {
-  // Save textarea content before re-render
   var savedInput = {};
   MEALS.forEach(function(m){
     var el = document.getElementById("fi-"+m);
