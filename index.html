@@ -367,7 +367,12 @@ function pull(silent) {
   });
 }
 function scheduleSave(data) {
-  allData = data; render();
+  allData = data;
+  // Only re-render macro bars and workout list — never wipe the meals textarea
+  if(curView==="log") {
+    renderMacros();
+    renderWoList();
+  }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
     setSyncStatus("syncing");
@@ -495,28 +500,22 @@ function cd(delta) {
 }
 
 // Log
-function renderLog() {
-  document.getElementById("dl").textContent = (selDate===todayKey()?"Today — ":"")+fmtDate(selDate);
-  document.getElementById("dn").disabled = selDate>=todayKey();
+function renderMacros() {
   var meals = getDay(selDate).meals||{};
   var tot = sumMeals(meals);
   var sc = score(tot);
-  // header macros
   var hm = document.getElementById("hm");
-  hm.innerHTML = [["Protein",tot.protein,TARGETS.protein,"g"],["Carbs",tot.carbs,TARGETS.carbs,"g"],
+  if(hm) hm.innerHTML = [["Protein",tot.protein,TARGETS.protein,"g"],["Carbs",tot.carbs,TARGETS.carbs,"g"],
     ["Fat",tot.fat,TARGETS.fat,"g"],["Kcal",tot.calories,TARGETS.calories,""]].map(function(x){
     var hit = x[1]>=x[2];
     return '<div class="mtile"><div class="v '+(hit?"hit":"")+'">'+x[1]+'</div><div class="l">'+x[0]+'</div><div class="t '+(hit?"hit":"")+'">/'+(x[2]+x[3])+'</div></div>';
   }).join("");
-  // ring
   var circ = 2*Math.PI*20;
   var col = sc>=80?"#27ae60":sc>=55?"#e67e22":"#e74c3c";
-  document.getElementById("rc").style.strokeDashoffset = circ-(sc/100)*circ;
-  document.getElementById("rc").setAttribute("stroke",col);
-  document.getElementById("rn").textContent = sc;
-  document.getElementById("rn").style.color = col;
-  // macro bars
+  var rc = document.getElementById("rc"); if(rc){ rc.style.strokeDashoffset = circ-(sc/100)*circ; rc.setAttribute("stroke",col); }
+  var rn = document.getElementById("rn"); if(rn){ rn.textContent = sc; rn.style.color = col; }
   var mb = document.getElementById("mb");
+  if(!mb) return;
   mb.innerHTML = [{l:"Protein",v:tot.protein,t:TARGETS.protein,c:"#e67e22",u:"g"},
     {l:"Carbs",v:tot.carbs,t:TARGETS.carbs,c:"#3498db",u:"g"},
     {l:"Fat",v:tot.fat,t:TARGETS.fat,c:"#8e44ad",u:"g"},
