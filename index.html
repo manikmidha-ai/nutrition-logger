@@ -608,6 +608,12 @@ function rmWo(idx) {
 
 // Meals
 function renderMeals() {
+  // Save textarea content before re-render
+  var savedInput = {};
+  MEALS.forEach(function(m){
+    var el = document.getElementById("fi-"+m);
+    if(el) savedInput[m] = el.value;
+  });
   var meals = getDay(selDate).meals||{};
   var list = document.getElementById("ml");
   list.innerHTML = MEALS.map(function(meal){
